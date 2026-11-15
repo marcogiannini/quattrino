@@ -4,7 +4,7 @@
  * Gli importi sono interi in centesimi: niente numeri in virgola mobile.
  */
 
-export const SCHEMA_VERSION = 1 as const;
+export const SCHEMA_VERSION = 2 as const;
 
 export type Hlc = string;
 export type TxType = 'income' | 'expense';
@@ -27,6 +27,27 @@ export interface Transaction extends Stamped {
   note: string;
   /** HLC di creazione, usato solo per ordinare movimenti dello stesso giorno. */
   createdAt: Hlc;
+  /** Se generato da una spesa ricorrente: id della regola. */
+  recurringId?: string;
+}
+
+export type Frequency = 'weekly' | 'monthly' | 'yearly';
+
+/**
+ * Regola di ricorrenza. Frequenza e data di inizio non si modificano dopo la creazione
+ * (per cambiarle si elimina la regola e se ne crea un'altra): così le occorrenze già
+ * generate non si duplicano.
+ */
+export interface RecurringRule extends Stamped {
+  type: TxType;
+  amountCents: number;
+  categoryId: string;
+  note: string;
+  frequency: Frequency;
+  /** Data della prima occorrenza (YYYY-MM-DD). Per le frequenze mensili/annuali ne deriva il giorno. */
+  startDate: string;
+  /** Ultima data utile (inclusa), oppure null = senza scadenza. */
+  endDate: string | null;
 }
 
 export interface Category extends Stamped {
@@ -58,11 +79,13 @@ export interface Snapshot {
   transactions: Record<string, Transaction>;
   categories: Record<string, Category>;
   budgets: Record<string, Budget>;
+  /** Novità dello schema 2: regole di ricorrenza. */
+  recurring: Record<string, RecurringRule>;
   settings: Settings;
 }
 
-export type TableName = 'transactions' | 'categories' | 'budgets';
-export type AnyRecord = Transaction | Category | Budget;
+export type TableName = 'transactions' | 'categories' | 'budgets' | 'recurring';
+export type AnyRecord = Transaction | Category | Budget | RecurringRule;
 
 export interface ConflictEntry {
   table: TableName;

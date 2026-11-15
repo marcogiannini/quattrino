@@ -1,6 +1,6 @@
 name: App desktop
 
-# Si avvia quando crei un tag di versione (es. v0.1.0) e prepara una bozza di "Release" su GitHub
+# Si avvia quando crei un tag di versione (es. v0.2.0) e prepara una bozza di "Release" su GitHub
 # con gli installer per Windows, macOS (Apple Silicon e Intel) e Linux.
 on:
   push:

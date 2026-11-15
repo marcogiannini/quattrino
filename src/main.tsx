@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Ledger } from './core/ledger';
+import { coreMessage, detectLocale, langOf, translator } from './i18n';
 import { IndexedDbStorage } from './storage/indexedDb';
 import { App } from './ui/App';
 import './ui/styles.css';
@@ -8,7 +9,7 @@ import './ui/styles.css';
 async function boot(): Promise<void> {
   const root = createRoot(document.getElementById('root')!);
   try {
-    const ledger = await Ledger.open(new IndexedDbStorage());
+    const ledger = await Ledger.open(new IndexedDbStorage(), { locale: detectLocale() });
     // Chiede al browser di non eliminare i dati locali sotto pressione di spazio (best effort).
     void navigator.storage?.persist?.();
     root.render(
@@ -17,14 +18,13 @@ async function boot(): Promise<void> {
       </StrictMode>,
     );
   } catch (e) {
+    const lang = langOf(detectLocale());
+    const t = translator(lang);
     root.render(
       <main className="fatal">
-        <h1>Impossibile aprire i dati locali</h1>
-        <p>{e instanceof Error ? e.message : String(e)}</p>
-        <p>
-          Se usi la navigazione privata o hai bloccato l’archiviazione del sito, riprova da una finestra normale. I tuoi dati non
-          sono stati modificati.
-        </p>
+        <h1>{t('fatal.title')}</h1>
+        <p>{e instanceof Error ? coreMessage(lang, e.message) : String(e)}</p>
+        <p>{t('fatal.help')}</p>
       </main>,
     );
   }

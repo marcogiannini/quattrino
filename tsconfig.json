@@ -11,6 +11,8 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "isolatedModules": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
     "types": ["vite/client"],
     "noEmit": true
   },

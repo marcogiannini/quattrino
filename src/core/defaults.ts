@@ -28,13 +28,14 @@ export const DEFAULT_CATEGORIES: Category[] = [
   seed('altre-entrate', 'Altre entrate', 'income', '💰', '#5c940d'),
 ];
 
-export function seedSnapshot(): Snapshot {
+export function seedSnapshot(locale = 'it-IT'): Snapshot {
   return {
     schema: SCHEMA_VERSION,
     transactions: {},
     categories: Object.fromEntries(DEFAULT_CATEGORIES.map((c) => [c.id, { ...c }])),
     budgets: {},
-    settings: { currency: 'EUR', locale: 'it-IT', updatedAt: SEED_HLC },
+    recurring: {},
+    settings: { currency: 'EUR', locale, updatedAt: SEED_HLC },
   };
 }
 

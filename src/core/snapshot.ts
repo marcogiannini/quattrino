@@ -6,7 +6,9 @@ import {
   type Budget,
   type Category,
   type CategoryKind,
+  type Frequency,
   type Hlc,
+  type RecurringRule,
   type Settings,
   type Snapshot,
   type Transaction,
@@ -68,7 +70,8 @@ const tomb = (r: Record<string, unknown>): { deleted?: true } => {
 
 export function parseSnapshot(x: unknown): Snapshot {
   if (!isObj(x)) return bad('Snapshot non valido');
-  if (x.schema !== SCHEMA_VERSION) {
+  // Lo schema 1 (app 0.1.x) è accettato: non ha ricorrenze.
+  if (x.schema !== SCHEMA_VERSION && x.schema !== 1) {
     if (typeof x.schema === 'number' && x.schema > SCHEMA_VERSION) {
       throw new SnapshotError('newer-schema', 'I dati provengono da una versione più recente dell’app.');
     }
@@ -88,6 +91,7 @@ export function parseSnapshot(x: unknown): Snapshot {
       note: str(r.note ?? '', 'note', 500),
       createdAt: hlc(r.createdAt, 'createdAt'),
       updatedAt: hlc(r.updatedAt, 'updatedAt'),
+      ...(r.recurringId === undefined ? {} : { recurringId: str(r.recurringId, 'recurringId', 100) }),
       ...tomb(r),
     };
   });
@@ -121,6 +125,33 @@ export function parseSnapshot(x: unknown): Snapshot {
     };
   });
 
+  const recurring =
+    x.recurring === undefined && x.schema === 1
+      ? {}
+      : table<RecurringRule>(x.recurring, 'recurring', (id, r) => {
+          if (r.type !== 'income' && r.type !== 'expense') bad('Tipo di ricorrenza non valido');
+          if (r.frequency !== 'weekly' && r.frequency !== 'monthly' && r.frequency !== 'yearly') bad('Frequenza non valida');
+          const startDate = str(r.startDate, 'startDate', 10);
+          if (!isValidISODate(startDate)) bad('Data di inizio non valida');
+          let endDate: string | null = null;
+          if (r.endDate !== null && r.endDate !== undefined) {
+            endDate = str(r.endDate, 'endDate', 10);
+            if (!isValidISODate(endDate)) bad('Data di fine non valida');
+          }
+          return {
+            id,
+            type: r.type as TxType,
+            amountCents: cents(r.amountCents, 'amountCents'),
+            categoryId: str(r.categoryId, 'categoryId', 100),
+            note: str(r.note ?? '', 'note', 500),
+            frequency: r.frequency as Frequency,
+            startDate,
+            endDate,
+            updatedAt: hlc(r.updatedAt, 'updatedAt'),
+            ...tomb(r),
+          };
+        });
+
   const s = x.settings;
   if (!isObj(s)) return bad('Impostazioni non valide');
   const currency = str(s.currency, 'currency', 3);
@@ -133,13 +164,13 @@ export function parseSnapshot(x: unknown): Snapshot {
   }
   const settings: Settings = { currency, locale, updatedAt: hlc(s.updatedAt, 'settings.updatedAt') };
 
-  return { schema: SCHEMA_VERSION, transactions, categories, budgets, settings };
+  return { schema: SCHEMA_VERSION, transactions, categories, budgets, recurring, settings };
 }
 
 /** Timestamp massimo presente nello snapshot (per far avanzare l'orologio locale). */
 export function maxSnapshotHlc(s: Snapshot): Hlc {
   let best = s.settings.updatedAt;
-  for (const t of [s.transactions, s.categories, s.budgets]) {
+  for (const t of [s.transactions, s.categories, s.budgets, s.recurring]) {
     for (const r of Object.values(t)) if (r.updatedAt > best) best = r.updatedAt;
   }
   return best;

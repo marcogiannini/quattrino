@@ -2,8 +2,8 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { todayISO } from '../core/dates';
 import type { Ledger } from '../core/ledger';
 import { centsToInput, parseAmountToCents } from '../core/money';
-import { ValidationError, type Transaction, type TxType } from '../core/types';
-import { Sheet } from './common';
+import type { Transaction, TxType } from '../core/types';
+import { Sheet, categoryName, errorText, useT } from './common';
 
 export function TransactionSheet({
   ledger,
@@ -16,6 +16,7 @@ export function TransactionSheet({
   onClose: () => void;
   onDeleted: (id: string) => void;
 }) {
+  const t = useT(ledger);
   const [type, setType] = useState<TxType>(tx?.type ?? 'expense');
   const [amount, setAmount] = useState(tx ? centsToInput(tx.amountCents) : '');
   const [date, setDate] = useState(tx?.date ?? todayISO());
@@ -33,45 +34,46 @@ export function TransactionSheet({
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const cents = parseAmountToCents(amount);
-    if (cents === null) return setError('Inserisci un importo valido maggiore di zero, ad esempio 12,50.');
+    if (cents === null) return setError(t('sheet.amountInvalid'));
     try {
       const data = { type, amountCents: cents, categoryId: effectiveCategory, date, note };
       if (tx) ledger.updateTransaction(tx.id, data);
       else ledger.addTransaction(data);
       onClose();
     } catch (err) {
-      setError(err instanceof ValidationError ? err.message : 'Errore imprevisto nel salvataggio.');
+      setError(errorText(err, ledger));
     }
   };
 
   return (
-    <Sheet title={tx ? 'Modifica movimento' : 'Nuovo movimento'} onClose={onClose}>
+    <Sheet title={tx ? t('sheet.edit') : t('sheet.new')} onClose={onClose}>
       <form onSubmit={submit} noValidate>
-        <div className="seg" role="group" aria-label="Tipo di movimento">
-          <button type="button" aria-pressed={type === 'expense'} onClick={() => setType('expense')}>Uscita</button>
-          <button type="button" aria-pressed={type === 'income'} onClick={() => setType('income')}>Entrata</button>
+        {tx?.recurringId && <p className="muted small">↻ {t('sheet.fromRecurring')}</p>}
+        <div className="seg" role="group" aria-label={t('sheet.kind')}>
+          <button type="button" aria-pressed={type === 'expense'} onClick={() => setType('expense')}>{t('common.expenseSingle')}</button>
+          <button type="button" aria-pressed={type === 'income'} onClick={() => setType('income')}>{t('common.incomeSingle')}</button>
         </div>
         <label>
-          Importo ({ledger.settings.currency})
+          {t('sheet.amount', { currency: ledger.settings.currency })}
           <input inputMode="decimal" autoFocus placeholder="0,00" value={amount} onChange={(e) => setAmount(e.target.value)} />
         </label>
         <label>
-          Categoria
+          {t('sheet.category')}
           <select value={effectiveCategory} onChange={(e) => setCategoryId(e.target.value)}>
             {options.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.icon} {c.name}
-                {c.archived ? ' (archiviata)' : ''}
+                {c.icon} {categoryName(t, c)}
+                {c.archived ? t('sheet.archived') : ''}
               </option>
             ))}
           </select>
         </label>
         <label>
-          Data
+          {t('sheet.date')}
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         </label>
         <label>
-          Nota (facoltativa)
+          {t('sheet.note')}
           <input maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} />
         </label>
         {error && <p className="error" role="alert">{error}</p>}
@@ -86,14 +88,14 @@ export function TransactionSheet({
                 onClose();
               }}
             >
-              Elimina
+              {t('common.delete')}
             </button>
           ) : (
             <span />
           )}
           <div className="row">
-            <button type="button" className="btn" onClick={onClose}>Annulla</button>
-            <button type="submit" className="btn primary">Salva</button>
+            <button type="button" className="btn" onClick={onClose}>{t('common.cancel')}</button>
+            <button type="submit" className="btn primary">{t('common.save')}</button>
           </div>
         </div>
       </form>

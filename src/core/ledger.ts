@@ -1,4 +1,6 @@
 import { CATEGORY_COLORS, seedSnapshot } from './defaults';
+import type { ImportPlan } from './csvImport';
+import { checkRuleDates, generatedHlc, occurrenceDates, occurrenceId } from './recurring';
 import { isValidISODate } from './dates';
 import { SEED_HLC, HybridClock } from './hlc';
 import { newDeviceId, newId } from './ids';
@@ -13,8 +15,10 @@ import {
   type Category,
   type CategoryKind,
   type ConflictEntry,
+  type Frequency,
   type Hlc,
   type LocalState,
+  type RecurringRule,
   type Settings,
   type Snapshot,
   type StorageAdapter,
@@ -33,6 +37,17 @@ export interface NewTransaction {
   date: string;
   note?: string;
 }
+export interface NewRecurring {
+  type: TxType;
+  amountCents: number;
+  categoryId: string;
+  note?: string;
+  frequency: Frequency;
+  startDate: string;
+  endDate?: string | null;
+}
+export type RecurringPatch = Partial<Pick<RecurringRule, 'amountCents' | 'categoryId' | 'note' | 'endDate'>>;
+
 export type TransactionPatch = Partial<Pick<Transaction, 'type' | 'amountCents' | 'categoryId' | 'date' | 'note'>>;
 
 const own = (o: object, k: string): boolean => Object.prototype.hasOwnProperty.call(o, k);
@@ -48,7 +63,7 @@ export class Ledger {
 
   private listeners = new Set<() => void>();
   private saveChain: Promise<void> = Promise.resolve();
-  private cache: { tx?: Transaction[]; cats?: Category[]; budgets?: Budget[] } = {};
+  private cache: { tx?: Transaction[]; cats?: Category[]; budgets?: Budget[]; rec?: RecurringRule[] } = {};
 
   private constructor(
     private state: LocalState,
@@ -56,15 +71,24 @@ export class Ledger {
     readonly clock: HybridClock,
   ) {}
 
-  static async open(storage: StorageAdapter, opts: { now?: () => number } = {}): Promise<Ledger> {
+  static async open(storage: StorageAdapter, opts: { now?: () => number; locale?: string } = {}): Promise<Ledger> {
     let state = await storage.load();
-    if (state && state.snapshot.schema !== SCHEMA_VERSION) {
-      throw new Error('I dati salvati provengono da una versione più recente dell’app: aggiornare l’app.');
+    let migrated = false;
+    if (state) {
+      const v = (state.snapshot as { schema: number }).schema;
+      if (v > SCHEMA_VERSION) {
+        throw new Error('I dati salvati provengono da una versione più recente dell’app: aggiornare l’app.');
+      }
+      if (v < SCHEMA_VERSION) {
+        // Migrazione 1 -> 2: nuova tabella delle ricorrenze (vuota). Nessun dato esistente cambia.
+        state = { ...state, snapshot: { ...state.snapshot, schema: SCHEMA_VERSION, recurring: {} } };
+        migrated = true;
+      }
     }
     const created = state === null;
     if (state === null) {
       state = {
-        snapshot: seedSnapshot(),
+        snapshot: seedSnapshot(opts.locale),
         deviceId: newDeviceId(),
         lastSyncHlc: SEED_HLC,
         clockLast: SEED_HLC,
@@ -74,7 +98,7 @@ export class Ledger {
       };
     }
     const ledger = new Ledger(state, storage, new HybridClock(state.deviceId, opts.now, state.clockLast));
-    if (created) await storage.save(state);
+    if (created || migrated) await storage.save(state);
     return ledger;
   }
 
@@ -115,6 +139,13 @@ export class Ledger {
 
   budgets(): Budget[] {
     return (this.cache.budgets ??= Object.values(this.state.snapshot.budgets).filter((b) => !b.deleted));
+  }
+
+  /** Regole di ricorrenza attive, in ordine di data di inizio. */
+  recurring(): RecurringRule[] {
+    return (this.cache.rec ??= Object.values(this.state.snapshot.recurring)
+      .filter((r) => !r.deleted)
+      .sort((a, b) => (a.startDate < b.startDate ? -1 : a.startDate > b.startDate ? 1 : a.id < b.id ? -1 : 1)));
   }
 
   subscribe = (fn: () => void): (() => void) => {
@@ -238,6 +269,129 @@ export class Ledger {
     this.put('budgets', { ...old, deleted: true, updatedAt: this.clock.tick() });
   }
 
+  // ------------------------------------------------------------ ricorrenze
+
+  addRecurring(input: NewRecurring): RecurringRule {
+    const endDate = input.endDate ?? null;
+    this.checkRule(input, endDate);
+    const rule: RecurringRule = {
+      id: `rule-${newId()}`,
+      type: input.type,
+      amountCents: input.amountCents,
+      categoryId: input.categoryId,
+      note: this.cleanNote(input.note),
+      frequency: input.frequency,
+      startDate: input.startDate,
+      endDate,
+      updatedAt: this.clock.tick(),
+    };
+    this.put('recurring', rule);
+    return rule;
+  }
+
+  updateRecurring(id: string, patch: RecurringPatch): RecurringRule {
+    const old = this.rec<RecurringRule>('recurring', id);
+    if (!old || old.deleted) throw new ValidationError('not-found', 'Ricorrenza non trovata.');
+    const next = { ...old, ...patch };
+    this.checkRule(next, next.endDate, old);
+    return this.put('recurring', {
+      ...old,
+      amountCents: next.amountCents,
+      categoryId: next.categoryId,
+      note: this.cleanNote(next.note),
+      endDate: next.endDate,
+      updatedAt: this.clock.tick(),
+    });
+  }
+
+  /** Elimina la regola: i movimenti già generati restano. */
+  deleteRecurring(id: string): void {
+    const old = this.rec<RecurringRule>('recurring', id);
+    if (!old || old.deleted) throw new ValidationError('not-found', 'Ricorrenza non trovata.');
+    this.put('recurring', { ...old, deleted: true, updatedAt: this.clock.tick() });
+  }
+
+  /**
+   * Crea i movimenti delle ricorrenze scaduti fino a `today` (incluso). Idempotente: un'occorrenza
+   * già presente (anche se eliminata dall'utente) non viene ricreata. Restituisce quanti movimenti ha creato.
+   */
+  generateRecurring(today: string): number {
+    const txs = this.state.snapshot.transactions;
+    const fresh: Record<string, Transaction> = {};
+    let count = 0;
+    for (const rule of this.recurring()) {
+      const cat = this.category(rule.categoryId);
+      if (!cat) continue;
+      for (const date of occurrenceDates(rule, today)) {
+        const id = occurrenceId(rule.id, date);
+        if (own(txs, id)) continue;
+        const stamp = generatedHlc(date);
+        fresh[id] = {
+          id,
+          type: rule.type,
+          amountCents: rule.amountCents,
+          categoryId: rule.categoryId,
+          date,
+          note: rule.note,
+          createdAt: stamp,
+          updatedAt: stamp,
+          recurringId: rule.id,
+        };
+        count += 1;
+      }
+    }
+    if (count > 0) {
+      this.state.snapshot = { ...this.state.snapshot, transactions: { ...txs, ...fresh } };
+      this.touch(true);
+    }
+    return count;
+  }
+
+  // ---------------------------------------------------------- importazione
+
+  /**
+   * Applica un piano di importazione: crea le categorie mancanti e aggiunge i movimenti non duplicati,
+   * in un'unica operazione. Restituisce quanti movimenti sono stati aggiunti.
+   */
+  commitImport(plan: ImportPlan, opts: { skipDuplicates: boolean }): number {
+    const created = new Map<string, string>();
+    for (const nc of plan.newCategories) {
+      created.set(`${nc.kind}|${nc.name.toLowerCase()}`, this.addCategory({ name: nc.name, kind: nc.kind }).id);
+    }
+    const inputs: NewTransaction[] = [];
+    for (const it of plan.items) {
+      if (opts.skipDuplicates && it.duplicate) continue;
+      const categoryId = it.categoryId ?? created.get(`${it.type}|${(it.newCategory ?? '').toLowerCase()}`);
+      if (!categoryId) continue;
+      inputs.push({ type: it.type, amountCents: it.amountCents, categoryId, date: it.date, note: it.note });
+    }
+    return this.addTransactions(inputs);
+  }
+
+  /** Aggiunge molti movimenti in un'unica operazione (una sola scrittura su disco). Tutto o niente. */
+  addTransactions(inputs: readonly NewTransaction[]): number {
+    const added: Record<string, Transaction> = {};
+    for (const input of inputs) {
+      this.checkTx(input);
+      const now = this.clock.tick();
+      const id = newId();
+      added[id] = {
+        id,
+        type: input.type,
+        amountCents: input.amountCents,
+        categoryId: input.categoryId,
+        date: input.date,
+        note: this.cleanNote(input.note),
+        createdAt: now,
+        updatedAt: now,
+      };
+    }
+    if (inputs.length === 0) return 0;
+    this.state.snapshot = { ...this.state.snapshot, transactions: { ...this.state.snapshot.transactions, ...added } };
+    this.touch(true);
+    return inputs.length;
+  }
+
   // ----------------------------------------------------------- impostazioni
 
   updateSettings(patch: { currency?: string; locale?: string }): Settings {
@@ -310,6 +464,7 @@ export class Ledger {
       transactions: restamp(cur.transactions, incoming.transactions),
       categories: restamp(cur.categories, incoming.categories),
       budgets: restamp(cur.budgets, incoming.budgets),
+      recurring: restamp(cur.recurring, incoming.recurring),
       settings: { ...incoming.settings, updatedAt: this.clock.tick() },
     };
     this.state.conflictLog = [];
@@ -363,6 +518,21 @@ export class Ledger {
     if (c.kind !== 'both' && c.kind !== t.type) {
       throw new ValidationError('category', 'La categoria non è adatta a questo tipo di movimento.');
     }
+  }
+
+  private checkRule(
+    r: { type: TxType; amountCents: number; categoryId: string; frequency: Frequency; startDate: string },
+    endDate: string | null,
+    existing?: RecurringRule,
+  ): void {
+    this.checkTx({ ...r, date: r.startDate }, existing ? { ...existing, date: existing.startDate } as unknown as Transaction : undefined);
+    if (r.frequency !== 'weekly' && r.frequency !== 'monthly' && r.frequency !== 'yearly') {
+      throw new ValidationError('frequency', 'Frequenza non valida.');
+    }
+    const bad = checkRuleDates(r.startDate, endDate);
+    if (bad === 'start') throw new ValidationError('start', 'Data di inizio non valida.');
+    if (bad === 'end') throw new ValidationError('end', 'Data di fine non valida.');
+    if (bad === 'order') throw new ValidationError('end', 'La data di fine non può precedere quella di inizio.');
   }
 
   private checkCategoryName(raw: string, kind: CategoryKind, selfId?: string): string {

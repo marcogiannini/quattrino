@@ -5,7 +5,7 @@ import { SyncEngine, type SyncReport } from '../core/sync/engine';
 import { GisTokenProvider } from '../core/sync/googleAuth';
 import { GoogleDriveRemote } from '../core/sync/googleDrive';
 import { SyncError } from '../core/sync/remote';
-import { errorText } from './common';
+import { errorText, useT } from './common';
 
 export type SyncStatus = 'off' | 'idle' | 'syncing' | 'offline' | 'needs-auth' | 'error';
 
@@ -56,6 +56,10 @@ function saveConfig(c: Config): void {
  * dell'utente per il popup di Google). Con un guscio nativo si userà il portachiavi del sistema.
  */
 export function useSync(ledger: Ledger): SyncUi {
+  const tNow = useT(ledger);
+  const tRef = useRef(tNow);
+  tRef.current = tNow;
+  const t = useCallback<typeof tNow>((k, p) => tRef.current(k, p), []);
   const rev = useSyncExternalStore(ledger.subscribe, () => ledger.revision, () => ledger.revision);
   const [cfg, setCfg] = useState(loadConfig);
   const session = useRef<{ engine: SyncEngine; auth: GisTokenProvider } | null>(null);
@@ -69,17 +73,14 @@ export function useSync(ledger: Ledger): SyncUi {
   const run = useCallback(async () => {
     const s = session.current;
     if (!s) return;
-    setSt((p) => ({ ...p, status: 'syncing', message: 'Sincronizzazione in corso…' }));
+    setSt((p) => ({ ...p, status: 'syncing', message: t('sy.running') }));
     try {
       const report = await s.engine.sync();
       const wrong = report.errors.some((e) => e.reason === 'wrong-passphrase');
+      const newer = report.errors.some((e) => e.reason === 'newer-schema');
       setSt({
         status: report.errors.length ? 'error' : 'idle',
-        message: wrong
-          ? 'La passphrase è diversa da quella degli altri dispositivi: i tuoi dati non sono stati caricati.'
-          : report.errors.length
-            ? 'Alcuni file remoti non sono leggibili e sono stati ignorati.'
-            : 'Sincronizzato',
+        message: wrong ? t('sy.wrongPass') : newer ? t('sy.newer') : report.errors.length ? t('sy.unreadable') : t('sy.synced'),
         lastAt: report.at,
         report,
       });
@@ -88,10 +89,10 @@ export function useSync(ledger: Ledger): SyncUi {
       setSt((p) => ({
         ...p,
         status: kind === 'offline' ? 'offline' : kind === 'auth' ? 'needs-auth' : 'error',
-        message: kind === 'offline' ? 'Offline: le modifiche restano sul dispositivo e verranno inviate appena torna la rete.' : errorText(e),
+        message: kind === 'offline' ? t('sy.offline') : errorText(e, ledger),
       }));
     }
-  }, []);
+  }, [ledger]);
 
   // Sincronizzazione automatica dopo le modifiche (con attesa), non in caso di errori in sospeso.
   useEffect(() => {
@@ -118,8 +119,8 @@ export function useSync(ledger: Ledger): SyncUi {
   const connect = useCallback(
     async (clientId: string, passphrase: string) => {
       const id = clientId.trim();
-      if (!id) throw new Error('Inserisci il Client ID OAuth di Google.');
-      if (passphrase.length < 8) throw new Error('La passphrase deve avere almeno 8 caratteri.');
+      if (!id) throw new Error(t('sy.needClientId'));
+      if (passphrase.length < 8) throw new Error(t('sy.passShort'));
       const auth = new GisTokenProvider(id);
       await auth.connect();
       const remote = new GoogleDriveRemote({ getToken: auth.getToken });
@@ -129,7 +130,7 @@ export function useSync(ledger: Ledger): SyncUi {
       saveConfig(next);
       await run();
     },
-    [ledger, run],
+    [ledger, run, t],
   );
 
   const disconnect = useCallback(async () => {

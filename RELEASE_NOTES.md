@@ -1,32 +1,34 @@
-# Quattrino 0.1.0 — anteprima
+# Quattrino 0.2.0 — ricorrenze, importazione CSV e inglese
 
-La prima versione di **Quattrino**, l'app per tenere sotto controllo le spese personali: semplice, che funziona anche senza internet e che tiene i tuoi dati sul tuo dispositivo.
+Tre novità per risparmiare tempo con le spese fisse, portare dentro i dati che hai già e usare l'app in inglese.
 
-## Cosa puoi fare
-- Registrare entrate e uscite in pochi secondi e correggerle quando vuoi (con "Annulla" se elimini per errore).
-- Usare le categorie già pronte (Alimentari, Trasporti, Casa, Salute, Svago, Utenze…) o crearne di tue.
-- Vedere dove vanno i soldi: grafici per mese e per categoria, su un mese, 3, 6, 12 mesi o sull'anno.
-- Fissare un budget mensile per categoria o complessivo e ricevere un'indicazione chiara quando ti avvicini al limite o lo superi.
-- Esportare i movimenti in CSV e fare un backup (anche cifrato con passphrase) da ripristinare quando serve.
-- Sincronizzare più dispositivi con Google Drive nella **versione web**: i dati sono cifrati sul tuo dispositivo prima di essere caricati, Google non può leggerli.
+## Novità
+- **Spese ricorrenti**: affitto, abbonamenti, stipendio… Impostali una volta (ogni settimana, mese o anno, con una data di fine facoltativa) e il movimento si crea da solo a ogni scadenza, anche per le date passate se non apri l'app per un po'. Sono movimenti normali: li puoi modificare o eliminare, e se ne elimini uno non ritorna. Le trovi in *Impostazioni → Spese ricorrenti*.
+- **Importa da CSV**: carica un file (anche quello esportato da Quattrino o dalla tua banca), guarda l'anteprima con le eventuali righe da correggere e importa. Se reimporti lo stesso file non si creano doppioni. In *Impostazioni → Importa da CSV*.
+- **Interfaccia in inglese**: scegli *Italiano* o *English* in *Impostazioni → Lingua*. Alla prima apertura l'app usa la lingua del tuo browser o sistema. La scelta vale per tutti i tuoi dispositivi sincronizzati.
+
+## Aggiornare dalla 0.1.0
+- I tuoi dati si aggiornano da soli all'apertura: non devi fare nulla e non si perde niente.
+- **Se usi la sincronizzazione con Google Drive, aggiorna tutti i dispositivi.** Un dispositivo ancora alla 0.1.x non legge i dati della 0.2.0 (lo segnala, senza rovinarli).
+- I backup esportati dalla 0.2.0 non si aprono con la 0.1.x. Quelli vecchi si aprono senza problemi.
 
 ## Come ottenerla
 | Dove | Come |
 |---|---|
-| **Web / telefono** | Apri l'indirizzo dell'app e scegli "Installa" (Chrome, Edge) o "Aggiungi alla schermata Home" (Safari su iPhone). Per l'uso offline aprila due volte con la rete. |
-| **Windows** | Scarica l'installer (`.msi` o `.exe`) dagli allegati di questa release. |
-| **macOS** | Scarica il `.dmg` (scegli la versione Apple Silicon o Intel). |
-| **Linux** | Scarica `.deb`, `.rpm` o `.AppImage` (rendi eseguibile l'AppImage con `chmod +x`). |
+| **Web / telefono** | Apri l'indirizzo dell'app: si aggiorna da sola alla riapertura. |
+| **Windows** | Scarica `.msi` o `.exe` dagli allegati di questa release. |
+| **macOS** | Scarica il `.dmg` (Apple Silicon o Intel). |
+| **Linux** | Scarica `.deb`, `.rpm` o `.AppImage` (`chmod +x` per l'AppImage). |
 
-## Da sapere prima di installare
-- **Build non firmate**: Windows mostrerà "App non riconosciuta" (*Ulteriori informazioni → Esegui comunque*); macOS bloccherà la prima apertura (tasto destro sull'app → *Apri*).
-- **L'app desktop non sincronizza con Google Drive** (per ora). Per usare più computer, esporta il backup in una cartella già sincronizzata dal tuo servizio cloud e ripristinalo con "Unisci ai dati attuali".
-- **Android e iOS**: non ci sono ancora app dedicate; la versione web si installa sul telefono.
-- **Passphrase**: se la perdi, i dati sul cloud non si possono recuperare. I dati sul dispositivo restano.
-- **Fai backup periodici**: i dati sono salvati nel dispositivo; se cancelli i dati del sito o disinstalli l'app possono andare persi.
-- Questa è un'**anteprima**: provata nel browser e su Linux; l'app desktop su Windows e macOS non è ancora stata collaudata.
+## Da sapere
+- **Build non firmate**: Windows mostrerà "App non riconosciuta" (*Ulteriori informazioni → Esegui comunque*); su macOS prima apertura con tasto destro → *Apri*.
+- **L'app desktop non sincronizza con Google Drive** (come nella 0.1.0): usa il backup in una cartella già sincronizzata dal tuo servizio cloud.
+- Di una ricorrenza non si cambiano frequenza e prima scadenza: se servono, eliminala e creane una nuova (i movimenti già creati restano).
+- Nell'importazione scegli tu se le date sono giorno/mese o mese/giorno.
+- **Fai backup periodici** e non perdere la passphrase di sincronizzazione.
+- Provata nel browser e su Linux; l'app desktop su Windows e macOS non è ancora stata collaudata. L'importazione non è stata provata con estratti conto reali.
 
 ## Privacy
 Nessun account, nessuna pubblicità, nessun tracciamento. I dati restano sul tuo dispositivo; se attivi la sincronizzazione, un file cifrato viene salvato in una cartella privata del tuo Google Drive.
 
-Elenco completo delle novità, dei limiti noti e delle verifiche eseguite: [CHANGELOG.md](CHANGELOG.md).
+Elenco completo, limiti noti e verifiche: [CHANGELOG.md](CHANGELOG.md).

@@ -1,3 +1,4 @@
+import { categoryName, translator, type TFn } from '../i18n';
 import { centsToInput } from './money';
 import { DEFAULT_KDF_ITERATIONS, PassphraseCipher, CryptoError, isEncryptedBlob, utf8 } from './crypto';
 import { parseSnapshot, SnapshotError } from './snapshot';
@@ -24,6 +25,7 @@ export async function exportBackup(snapshot: Snapshot, opts: BackupOptions = {})
     transactions: activeOnly(snapshot.transactions),
     categories: activeOnly(snapshot.categories),
     budgets: activeOnly(snapshot.budgets),
+    recurring: activeOnly(snapshot.recurring),
   };
   const payload = utf8.enc(
     JSON.stringify({ app: 'quattrino', format: 1, exportedAt: (opts.now?.() ?? new Date()).toISOString(), snapshot: clean }),
@@ -80,18 +82,18 @@ const quote = (v: string): string => (/[";\n\r]/.test(v) ? `"${v.replace(/"/g, '
  */
 const textCell = (v: string): string => quote(/^[=+\-@\t\r]/.test(v) ? `'${v}` : v);
 
-/** CSV per Excel italiano: separatore ";", decimali con virgola, BOM UTF-8. */
-export function transactionsToCsv(txs: readonly Transaction[], categories: readonly Category[]): string {
-  const names = new Map(categories.map((c) => [c.id, c.name]));
-  const rows = ['Data;Tipo;Categoria;Importo;Nota'];
-  for (const t of [...txs].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.createdAt < b.createdAt ? -1 : 1))) {
+/** CSV per Excel italiano: separatore ";", decimali con virgola, BOM UTF-8. Intestazioni e nomi nella lingua `t`. */
+export function transactionsToCsv(txs: readonly Transaction[], categories: readonly Category[], t: TFn = translator('it')): string {
+  const names = new Map(categories.map((c) => [c.id, categoryName(t, c)]));
+  const rows = [t('csv.header')];
+  for (const x of [...txs].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.createdAt < b.createdAt ? -1 : 1))) {
     rows.push(
       [
-        t.date,
-        t.type === 'income' ? 'Entrata' : 'Uscita',
-        textCell(names.get(t.categoryId) ?? '(categoria rimossa)'),
-        centsToInput(t.type === 'income' ? t.amountCents : -t.amountCents),
-        textCell(t.note),
+        x.date,
+        x.type === 'income' ? t('csv.income') : t('csv.expense'),
+        textCell(names.get(x.categoryId) ?? t('csv.removed')),
+        centsToInput(x.type === 'income' ? x.amountCents : -x.amountCents),
+        textCell(x.note),
       ].join(';'),
     );
   }

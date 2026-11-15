@@ -1,11 +1,12 @@
 import { monthLabel } from '../core/dates';
 import type { Ledger } from '../core/ledger';
 import type { CategoryTotal, MonthPoint } from '../core/stats';
-import { money } from './common';
+import { categoryName, money, useT } from './common';
 
 /** Ripartizione per categoria: barre orizzontali in HTML (leggibili da screen reader, con valori in chiaro). */
 export function CategoryBars({ ledger, rows }: { ledger: Ledger; rows: CategoryTotal[] }) {
-  if (rows.length === 0) return <p className="empty">Nessun movimento nel periodo.</p>;
+  const t = useT(ledger);
+  if (rows.length === 0) return <p className="empty">{t('st.none')}</p>;
   return (
     <ul className="bars">
       {rows.map((r) => {
@@ -14,7 +15,7 @@ export function CategoryBars({ ledger, rows }: { ledger: Ledger; rows: CategoryT
           <li key={r.categoryId}>
             <div className="head">
               <span>
-                {c?.icon ?? '❔'} {c?.name ?? 'Categoria rimossa'}
+                {c?.icon ?? '❔'} {categoryName(t, c)}
               </span>
               <span className="num">
                 <strong>{money(ledger, r.totalCents)}</strong> <span className="muted">· {Math.round(r.share * 100)}%</span>
@@ -32,6 +33,7 @@ export function CategoryBars({ ledger, rows }: { ledger: Ledger; rows: CategoryT
 
 /** Entrate e uscite per mese: barre affiancate in SVG con legenda testuale. */
 export function MonthlyChart({ ledger, series }: { ledger: Ledger; series: MonthPoint[] }) {
+  const t = useT(ledger);
   const W = 640;
   const H = 220;
   const pad = { l: 8, r: 8, t: 12, b: 26 };
@@ -40,15 +42,15 @@ export function MonthlyChart({ ledger, series }: { ledger: Ledger; series: Month
   const bw = Math.min(28, gw / 2.6);
   const y = (v: number) => H - pad.b - (v / max) * (H - pad.t - pad.b);
   const summary = series
-    .map((p) => `${monthLabel(p.month, ledger.settings.locale, 'short')}: entrate ${money(ledger, p.incomeCents)}, uscite ${money(ledger, p.expenseCents)}`)
+    .map((p) => t('st.chartPoint', { month: monthLabel(p.month, ledger.settings.locale, 'short'), inc: money(ledger, p.incomeCents), exp: money(ledger, p.expenseCents) }))
     .join('; ');
   return (
     <figure style={{ margin: 0 }}>
       <div className="legend">
-        <span><i style={{ background: 'var(--inc)' }} />Entrate</span>
-        <span><i style={{ background: 'var(--exp)' }} />Uscite</span>
+        <span><i style={{ background: 'var(--inc)' }} />{t('common.income')}</span>
+        <span><i style={{ background: 'var(--exp)' }} />{t('common.expenses')}</span>
       </div>
-      <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Entrate e uscite per mese. ${summary}`}>
+      <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t('st.chartAria', { summary })}>
         {[0.5, 1].map((f) => (
           <line key={f} x1={pad.l} x2={W - pad.r} y1={y(max * f)} y2={y(max * f)} stroke="var(--line)" />
         ))}

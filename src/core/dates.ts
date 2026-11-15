@@ -52,3 +52,9 @@ export function dayLabel(date: string, locale = 'it-IT'): string {
     timeZone: 'UTC',
   }).format(new Date(Date.UTC(y, m - 1, d)));
 }
+
+/** Data breve nella lingua indicata (es. "15 nov 2026" / "15 Nov 2026"). */
+export function dateLabel(date: string, locale = 'it-IT'): string {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d)));
+}

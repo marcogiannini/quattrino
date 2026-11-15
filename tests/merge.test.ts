@@ -146,7 +146,7 @@ describe('parseSnapshot (dati non fidati)', () => {
 
   it('distingue una versione di schema più recente', () => {
     const raw = ok();
-    raw.schema = 2;
+    raw.schema = 3;
     try {
       parseSnapshot(raw);
       expect.unreachable();

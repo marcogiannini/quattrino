@@ -7,7 +7,10 @@ Progetto e motivazioni: [`docs/PROGETTO.md`](docs/PROGETTO.md).
 
 | | Stato |
 |---|---|
-| Registrazione/modifica movimenti, categorie, statistiche, budget, CSV | Pronto, provato |
+| Registrazione/modifica movimenti, categorie, statistiche, budget, esportazione CSV | Pronto, provato |
+| Spese ricorrenti (0.2.0) | Pronto, provato nel browser e con test; solo mensile/settimanale/annuale |
+| Importazione da CSV (0.2.0) | Pronto, provato con file di prova (anche quelli esportati da Quattrino); **non provato con estratti conto reali di banche** |
+| Interfaccia in italiano e inglese (0.2.0) | Pronta; la lingua si sceglie in Impostazioni e segue il browser alla prima apertura |
 | Archiviazione locale e uso offline (web/PWA) | Pronto, provato |
 | Backup/ripristino su file cifrato | Pronto, provato |
 | Cifratura e motore di sync, conflitti | Pronto, provato con cloud **simulato** |
@@ -23,7 +26,7 @@ Progetto e motivazioni: [`docs/PROGETTO.md`](docs/PROGETTO.md).
 
 ```bash
 npm install
-npm test          # 117 test automatici
+npm test          # 158 test automatici
 npm run build     # controllo dei tipi + build in dist/
 npm run dev       # sviluppo: http://localhost:5173
 npm run preview   # prova la build (con service worker): http://localhost:4173
@@ -83,7 +86,7 @@ Linux (Debian/Ubuntu): prima `sudo apt-get install -y libwebkit2gtk-4.1-dev buil
 
 **Installer per tutti e tre i sistemi senza averli** (GitHub Actions, `.github/workflows/desktop.yml`):
 ```bash
-git tag v0.1.0 && git push origin v0.1.0
+git tag v0.2.0 && git push origin v0.2.0
 ```
 Dopo qualche minuto trovi in *Releases* una **bozza** con gli installer (.msi/.exe, .dmg, .deb/.rpm/.AppImage). Controllali e pubblica la bozza.
 

@@ -29,7 +29,7 @@ Documento di progetto. Per installare e provare il codice vedi `README.md`.
 2. Categorie predefinite (Alimentari, Trasporti, Casa, Salute, Svago, Utenze, Altre spese, Stipendio, Altre entrate) e personalizzate (crea, rinomina, archivia senza perdere lo storico).
 3. Statistiche: spese per categoria, entrate contro uscite per mese, periodi (mese, 3/6/12 mesi, anno).
 4. Budget mensili per categoria e complessivo, con stato "in linea / vicino al limite (≥80%) / superato".
-5. Ricerca e filtri sui movimenti. Esportazione CSV (Excel italiano).
+5. Ricerca e filtri sui movimenti. Esportazione CSV (Excel italiano) e importazione da CSV (v0.2.0).
 6. Sincronizzazione cifrata (Google Drive), conflitti, backup e ripristino.
 
 **Flusso principale**: apro l'app → tocco **+** → importo, categoria, (data, nota) → Salva → la panoramica si aggiorna subito → se il budget della categoria si avvicina al limite lo vedo nella panoramica → a fine mese consulto le Statistiche. La sincronizzazione parte da sola in background; l'app funziona identica anche senza rete.
@@ -62,10 +62,19 @@ src/
 ```
 
 **Entità** (tutte con `id` stabile, `updatedAt` HLC, cancellazione logica `deleted`):
-- `Transaction`: `type` (entrata/uscita), `amountCents` (intero > 0), `categoryId`, `date` (YYYY-MM-DD, senza fuso), `note`, `createdAt`.
+- `Transaction`: `type` (entrata/uscita), `amountCents` (intero > 0), `categoryId`, `date` (YYYY-MM-DD, senza fuso), `note`, `createdAt`, `recurringId` (solo se generato da una ricorrenza).
 - `Category`: `name`, `kind` (entrata/uscita/entrambe), `icon`, `color`, `builtin`, `archived`. Le predefinite hanno id fissi uguali su tutti i dispositivi, così non si duplicano.
 - `Budget`: `categoryId` (o `null` = totale uscite), `amountCents`, mensile ricorrente. Id deterministico per categoria: due dispositivi che impostano il budget della stessa categoria convergono su un solo record.
-- `Settings`: valuta e lingua.
+- `RecurringRule` (schema 2, v0.2.0): `type`, `amountCents`, `categoryId`, `note`, `frequency` (settimanale/mensile/annuale), `startDate`, `endDate` (opzionale). Frequenza e inizio non si modificano: per cambiarli si elimina la regola e se ne crea un'altra, così le occorrenze già create non si duplicano.
+- `Settings`: valuta e lingua (`locale`: `it-IT` / `en-GB`). La lingua è un dato sincronizzato: vale per tutti i dispositivi.
+
+**Ricorrenze e sincronizzazione.** Le occorrenze sono movimenti normali con id deterministico (`<idRegola>-<data>`) e timestamp deterministico e "vecchio" (due giorni prima della data). Se due dispositivi generano la stessa occorrenza il risultato è identico: nessun doppione e nessun falso conflitto; qualunque modifica o eliminazione dell'utente ha un timestamp più recente e vince sempre; un'occorrenza eliminata non viene ricreata (resta il segno di cancellazione). Le occorrenze si generano all'apertura, a ogni modifica/sincronizzazione e ogni ora, fino a oggi (tetto di sicurezza: 1000 per regola). Mensile: il giorno 31 si adatta ai mesi corti (28/29/30) senza "scivolare" nei mesi successivi.
+
+**Schema 2 e compatibilità.** Lo schema dei dati passa da 1 a 2 (nuova tabella `recurring`). I dati locali della 0.1.x si migrano all'apertura senza perdere nulla; backup e file remoti dello schema 1 si leggono ancora. Un'app 0.1.x che trova un file dello schema 2 lo segnala come "versione più recente" e lo ignora (non lo rovina): con la sincronizzazione attiva **aggiornare tutti i dispositivi** alla 0.2.0.
+
+**Importazione CSV.** Lettura RFC 4180 (virgolette, a capo nei campi, BOM), separatore riconosciuto (`;` `,` tab), codifica UTF-8 con ripiego su Windows-1252, intestazioni italiane/inglesi, date ISO/gg-mm-aaaa/mm-gg-aaaa, importi con segno (`-12,50`, `(12,50)`, `12,50-`). Ogni riga è validata: le non valide sono elencate con numero di riga e motivo senza bloccare le altre. Categorie non riconosciute: create o assegnate a "Altre spese/entrate". I duplicati (stessa data, tipo, importo, categoria, nota) si saltano contando le occorrenze, quindi un file con due righe identiche legittime resta corretto e reimportare lo stesso file non duplica. Limiti: 5 MB e 20.000 righe.
+
+**Traduzioni.** Catalogo italiano/inglese in `src/i18n`; il tipo dell'inglese obbliga a tradurre ogni chiave. Le categorie predefinite si mostrano tradotte finché non vengono rinominate; i nomi creati dall'utente restano com'erano scritti.
 
 **Regole di integrità** (applicate dal `Ledger` e riverificate sui dati che arrivano da fuori): importo intero positivo, data di calendario reale, categoria esistente e compatibile col tipo, categorie archiviate non selezionabili ma ancora risolvibili.
 
@@ -140,12 +149,12 @@ Accessibilità: tema chiaro/scuro automatico, grafici con descrizione testuale, 
 | 3. Sync | Cifratura, motore, conflitti, adattatore Drive | Unitari con cloud simulato e `fetch` simulato | Convergenza provata; nessun dato in chiaro nel cloud | **Fatta con cloud simulato** |
 | 4. Collaudo reale su Drive | Client ID reale, 2+ dispositivi, rete instabile | Manuale guidato (vedi README) | Sync bidirezionale reale, token scaduto gestito | **Da fare (servono credenziali)** |
 | 5. Gusci nativi | Tauri (desktop), Capacitor (mobile), flusso PKCE nativo, portachiavi | Build e prova su ogni sistema | Installer che si avvia su Windows/macOS/Linux; app su Android e iOS | **Desktop: guscio Tauri fatto, compilato e avviato su Linux; Windows/macOS da provare. Mobile e accesso Google nativo: da fare** |
-| 6. Rifinitura | Spese ricorrenti, import CSV, notifiche budget, localizzazione, accessibilità con screen reader reali | Prove con utenti | Nessun errore bloccante in 2 settimane d'uso | **Da fare** |
+| 6. Rifinitura | Spese ricorrenti, import CSV, localizzazione (v0.2.0); notifiche budget, accessibilità con screen reader reali | Prove con utenti | Nessun errore bloccante in 2 settimane d'uso | **Parziale: ricorrenze, import CSV e inglese fatti nella 0.2.0; notifiche e prove con utenti da fare** |
 | 7. Pubblicazione | Verifica dell'app Google, firma, store | Checklist di rilascio | App verificata; build firmate | **Da fare** |
 
 ## 7. Cosa è verificato e cosa no
 
-**Verificato in questa sessione**: 117 test automatici verdi; controllo dei tipi; build di produzione; prova in Chromium (telefono e desktop): inserimento, modifica, eliminazione con annulla, budget, categoria personalizzata, statistiche, persistenza dopo ricarica, uso e riapertura offline, nessun errore in console.
+**Verificato in questa sessione**: 158 test automatici verdi (inclusi ricorrenze, migrazione dallo schema 1, import CSV, traduzioni); controllo dei tipi; build di produzione; prova in Chromium (telefono e desktop): inserimento, modifica, eliminazione con annulla, budget, categoria personalizzata, statistiche, persistenza dopo ricarica, uso e riapertura offline, nessun errore in console; v0.2.0: creazione di una ricorrenza con anteprima e assenza di doppioni dopo il ricaricamento, importazione di un CSV Windows-1252 con riga errata, secondo import senza duplicati, cambio lingua persistente, lingua iniziale dal browser; app desktop 0.2.0 compilata e avviata su Linux.
 
 **Non verificato**:
 - Qualsiasi chiamata reale a Google (nessuna credenziale disponibile): l'adattatore Drive è provato solo contro risposte simulate; il flusso di accesso Google non è stato eseguito.

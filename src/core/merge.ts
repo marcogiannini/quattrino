@@ -73,6 +73,7 @@ export function mergeSnapshots(local: Snapshot, remote: Snapshot, lastSyncHlc: H
   const tx = mergeTable('transactions', local.transactions, remote.transactions, lastSyncHlc, conflicts);
   const cat = mergeTable('categories', local.categories, remote.categories, lastSyncHlc, conflicts);
   const bud = mergeTable('budgets', local.budgets, remote.budgets, lastSyncHlc, conflicts);
+  const rec = mergeTable('recurring', local.recurring, remote.recurring, lastSyncHlc, conflicts);
   const settingsRemoteWins = remote.settings.updatedAt > local.settings.updatedAt;
   return {
     snapshot: {
@@ -80,9 +81,10 @@ export function mergeSnapshots(local: Snapshot, remote: Snapshot, lastSyncHlc: H
       transactions: tx.merged,
       categories: cat.merged,
       budgets: bud.merged,
+      recurring: rec.merged,
       settings: settingsRemoteWins ? remote.settings : local.settings,
     },
     conflicts,
-    changedLocal: tx.changed || cat.changed || bud.changed || settingsRemoteWins,
+    changedLocal: tx.changed || cat.changed || bud.changed || rec.changed || settingsRemoteWins,
   };
 }

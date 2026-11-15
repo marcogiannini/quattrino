@@ -2,7 +2,7 @@ import { monthRange } from '../../core/dates';
 import type { Ledger } from '../../core/ledger';
 import { budgetStatuses, totals } from '../../core/stats';
 import type { Transaction } from '../../core/types';
-import { MonthNav, money } from '../common';
+import { MonthNav, money, useT } from '../common';
 import { BudgetBar } from './Budget';
 import { TxRow } from './Transactions';
 
@@ -21,29 +21,30 @@ export function Overview({
   onOpenBudget: () => void;
   onOpenTransactions: () => void;
 }) {
+  const t = useT(ledger);
   const txs = ledger.transactions();
   const { from, to } = monthRange(month);
-  const t = totals(txs, from, to);
+  const tot = totals(txs, from, to);
   const budgets = budgetStatuses(ledger.budgets(), txs, month).sort((a, b) => b.ratio - a.ratio).slice(0, 3);
   const recent = txs.filter((x) => x.date >= from && x.date <= to).slice(0, 5);
 
   return (
     <>
-      <h1>Panoramica</h1>
+      <h1>{t('nav.home')}</h1>
       <MonthNav month={month} onChange={onMonth} locale={ledger.settings.locale} />
       <div className="grid3">
-        <div className="stat"><div className="label">Entrate</div><div className="value num inc">{money(ledger, t.incomeCents)}</div></div>
-        <div className="stat"><div className="label">Uscite</div><div className="value num exp">{money(ledger, t.expenseCents)}</div></div>
-        <div className="stat"><div className="label">Saldo del mese</div><div className="value num">{money(ledger, t.netCents)}</div></div>
+        <div className="stat"><div className="label">{t('common.income')}</div><div className="value num inc">{money(ledger, tot.incomeCents)}</div></div>
+        <div className="stat"><div className="label">{t('common.expenses')}</div><div className="value num exp">{money(ledger, tot.expenseCents)}</div></div>
+        <div className="stat"><div className="label">{t('ov.balance')}</div><div className="value num">{money(ledger, tot.netCents)}</div></div>
       </div>
 
       <div className="card">
         <div className="row between">
-          <h2>Budget</h2>
-          <button className="btn" onClick={onOpenBudget}>Gestisci</button>
+          <h2>{t('nav.budget')}</h2>
+          <button className="btn" onClick={onOpenBudget}>{t('ov.manage')}</button>
         </div>
         {budgets.length === 0 ? (
-          <p className="muted small">Nessun budget impostato per tenere sotto controllo le spese.</p>
+          <p className="muted small">{t('ov.noBudget')}</p>
         ) : (
           <div style={{ display: 'grid', gap: 14 }}>
             {budgets.map((s) => (
@@ -54,11 +55,11 @@ export function Overview({
       </div>
 
       <div className="row between" style={{ margin: '6px 2px' }}>
-        <h2>Ultimi movimenti</h2>
-        <button className="btn" onClick={onOpenTransactions}>Vedi tutti</button>
+        <h2>{t('ov.recent')}</h2>
+        <button className="btn" onClick={onOpenTransactions}>{t('ov.seeAll')}</button>
       </div>
       {recent.length === 0 ? (
-        <p className="empty">Ancora nessun movimento questo mese. Tocca “+” per iniziare.</p>
+        <p className="empty">{t('ov.empty')}</p>
       ) : (
         recent.map((x) => <TxRow key={x.id} ledger={ledger} tx={x} onClick={() => onEdit(x)} />)
       )}
