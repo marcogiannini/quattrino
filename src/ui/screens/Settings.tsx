@@ -3,16 +3,8 @@ import { BackupError, exportBackup, readBackup, transactionsToCsv } from '../../
 import type { Ledger } from '../../core/ledger';
 import type { CategoryKind } from '../../core/types';
 import { errorText } from '../common';
+import { confirmAction, isDesktopApp, saveFile } from '../desktop';
 import type { SyncUi } from '../useSync';
-
-function download(name: string, data: BlobPart, type: string): void {
-  const url = URL.createObjectURL(new Blob([data], { type }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
-}
 
 const stamp = (): string => new Date().toISOString().slice(0, 10);
 
@@ -81,6 +73,20 @@ function Categories({ ledger }: { ledger: Ledger }) {
         </div>
         {error && <p className="error" role="alert">{error}</p>}
       </form>
+    </div>
+  );
+}
+
+function DesktopSyncNotice() {
+  return (
+    <div className="card">
+      <h2>Sincronizzazione</h2>
+      <p className="muted small">
+        Nell’app desktop la sincronizzazione con Google Drive non è ancora disponibile. Per avere i dati su più computer usa
+        “Esporta backup” e salva il file in una cartella già sincronizzata dal tuo servizio cloud (Drive, iCloud, OneDrive,
+        Dropbox…); sull’altro dispositivo usa “Ripristina” con la modalità “Unisci ai dati attuali”. La versione web
+        sincronizza con Google Drive.
+      </p>
     </div>
   );
 }
@@ -171,8 +177,18 @@ function BackupPanel({ ledger }: { ledger: Ledger }) {
   const doExport = async () => {
     try {
       const bytes = await exportBackup(ledger.getSnapshot(), { passphrase: pass || undefined });
-      download(`quattrino-backup-${stamp()}.${pass ? 'quattrino' : 'json'}`, bytes as BlobPart, 'application/octet-stream');
-      setMsg({ ok: true, text: pass ? 'Backup cifrato scaricato.' : 'Backup scaricato IN CHIARO: conservalo con cura.' });
+      const r = await saveFile(`quattrino-backup-${stamp()}.${pass ? 'quattrino' : 'json'}`, bytes as BlobPart, 'application/octet-stream');
+      if (r === 'cancelled') return;
+      setMsg({ ok: true, text: pass ? 'Backup cifrato salvato.' : 'Backup salvato IN CHIARO: conservalo con cura.' });
+    } catch (e) {
+      setMsg({ ok: false, text: errorText(e) });
+    }
+  };
+
+  const doCsv = async () => {
+    try {
+      const r = await saveFile(`quattrino-movimenti-${stamp()}.csv`, transactionsToCsv(ledger.transactions(), ledger.categories()), 'text/csv;charset=utf-8');
+      if (r === 'saved') setMsg({ ok: true, text: 'File CSV salvato.' });
     } catch (e) {
       setMsg({ ok: false, text: errorText(e) });
     }
@@ -181,7 +197,7 @@ function BackupPanel({ ledger }: { ledger: Ledger }) {
   const doImport = async () => {
     const f = file.current?.files?.[0];
     if (!f) return setMsg({ ok: false, text: 'Scegli prima un file di backup.' });
-    if (mode === 'replace' && !window.confirm('Sostituire TUTTI i dati attuali con quelli del backup? Scarica prima un backup se non sei sicuro.')) return;
+    if (mode === 'replace' && !(await confirmAction('Sostituire TUTTI i dati attuali con quelli del backup? Esporta prima un backup se non sei sicuro.'))) return;
     try {
       const snap = await readBackup(new Uint8Array(await f.arrayBuffer()), { passphrase: pass || undefined });
       if (mode === 'replace') ledger.replaceAll(snap);
@@ -202,7 +218,7 @@ function BackupPanel({ ledger }: { ledger: Ledger }) {
       </label>
       <div className="row wrap" style={{ marginBottom: 14 }}>
         <button className="btn primary" onClick={() => void doExport()}>Esporta backup</button>
-        <button className="btn" onClick={() => download(`quattrino-movimenti-${stamp()}.csv`, transactionsToCsv(ledger.transactions(), ledger.categories()), 'text/csv;charset=utf-8')}>Esporta CSV</button>
+        <button className="btn" onClick={() => void doCsv()}>Esporta CSV</button>
       </div>
       <label>
         File di backup da ripristinare
@@ -244,7 +260,7 @@ export function SettingsScreen({ ledger, sync }: { ledger: Ledger; sync: SyncUi 
         </label>
         {error && <p className="error" role="alert">{error}</p>}
       </div>
-      <SyncPanel ledger={ledger} sync={sync} />
+      {isDesktopApp() ? <DesktopSyncNotice /> : <SyncPanel ledger={ledger} sync={sync} />}
       <BackupPanel ledger={ledger} />
       <p className="muted small">Quattrino 0.1.0 · ID dispositivo {ledger.deviceId} · i dati risiedono su questo dispositivo.</p>
     </>

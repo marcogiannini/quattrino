@@ -12,7 +12,9 @@ Progetto e motivazioni: [`docs/PROGETTO.md`](docs/PROGETTO.md).
 | Backup/ripristino su file cifrato | Pronto, provato |
 | Cifratura e motore di sync, conflitti | Pronto, provato con cloud **simulato** |
 | Sync reale con Google Drive | Codice scritto e provato con risposte simulate; **serve un tuo Client ID Google** e un collaudo reale |
-| App desktop (Tauri) e mobile (Capacitor) | **Non inclusi**: istruzioni sotto, da compilare e provare sul sistema di destinazione |
+| App web (PWA) pubblicabile online | Pronta: vedi "Metterlo online" |
+| App desktop (Tauri 2) | Guscio incluso (`src-tauri/`); **compilata e avviata su Linux**, Windows e macOS si compilano con GitHub Actions ma **non sono state provate** |
+| App mobile (Capacitor) | **Non inclusa**: istruzioni sotto, da compilare e provare sul sistema di destinazione |
 
 ## Requisiti
 - Node.js 20 o superiore (provato con 22), npm.
@@ -28,6 +30,7 @@ npm run preview   # prova la build (con service worker): http://localhost:4173
 ```
 
 Il service worker, e quindi la riapertura offline, è attivo solo nella build (`preview`), non in `dev`.
+`npm run tauri dev` / `npm run tauri build` richiedono i prerequisiti descritti nella sezione "App desktop".
 
 ### Provarla su ogni piattaforma
 
@@ -38,13 +41,6 @@ Il service worker, e quindi la riapertura offline, è attivo solo nella build (`
 - iOS: Safari → Condividi → "Aggiungi alla schermata Home".
 Per provare dal telefono in rete locale: `npm run dev -- --host` (la sincronizzazione Google richiede https, quindi non funziona su indirizzi `http://192.168…`).
 
-**Desktop nativo (Tauri 2), da fare.** Servono Rust e i componenti di sistema indicati dalla guida ufficiale di Tauri per il tuo sistema operativo.
-```bash
-npm i -D @tauri-apps/cli && npx tauri init     # frontendDist: ../dist, devUrl: http://localhost:5173
-npx tauri build
-```
-Si compila sul sistema di destinazione (Windows per .msi, macOS per .dmg, Linux per .deb/.AppImage).
-
 **Mobile nativo (Capacitor), da fare.**
 ```bash
 npm i @capacitor/core @capacitor/cli && npx cap init Quattrino <id.pacchetto.tuo> --web-dir=dist
@@ -54,6 +50,48 @@ npx cap open android   # Android Studio
 npx cap open ios       # Xcode: richiede un Mac
 ```
 Nei gusci nativi, per Google va collegato il flusso PKCE (`src/core/sync/pkce.ts`, solo logica) con il browser di sistema e un redirect, oppure usato l'SDK ufficiale di Google per la piattaforma.
+
+## Metterlo online come web app
+
+L'app è un sito statico: la cartella `dist/` prodotta da `npm run build` si pubblica su qualsiasi hosting statico, anche in una sottocartella (i percorsi sono relativi). I dati restano nel browser di chi la usa (IndexedDB, uno spazio separato per ogni indirizzo).
+
+**GitHub Pages (incluso nel repository)**
+1. Carica il progetto su GitHub (ramo `main`).
+2. Repository → *Settings* → *Pages* → *Source*: **GitHub Actions**. Il file `.github/workflows/deploy.yml` esegue test e build a ogni push e pubblica il sito su `https://<utente>.github.io/<repository>/`. Nei piani gratuiti Pages richiede in genere un repository pubblico: controlla le condizioni attuali di GitHub.
+
+**Altri hosting** (Cloudflare Pages, Netlify, Vercel, un tuo server web): comando di build `npm run build`, cartella da pubblicare `dist`. Qualsiasi server che serva file statici su **https** va bene.
+
+Da sapere:
+- **https obbligatorio** per installare l'app, per l'uso offline e per l'accesso a Google. Su Pages e sui servizi sopra c'è già.
+- **Offline**: la memorizzazione dei file per l'uso offline avviene alla prima visita, ma conviene aprire l'app **due volte con la rete** prima di contare sull'uso offline (provato).
+- **Sincronizzazione Google**: nel Client ID OAuth (tipo "Applicazione web") aggiungi l'indirizzo esatto del sito, per esempio `https://<utente>.github.io`, tra le "Origini JavaScript autorizzate".
+- **Aggiornamenti**: dopo una nuova pubblicazione, il browser può mostrare ancora la versione vecchia fino alla riapertura dell'app.
+
+## App desktop (Windows, macOS, Linux)
+
+Il guscio desktop usa **Tauri 2** e il WebView del sistema (WebView2, WKWebView, WebKitGTK): stessa interfaccia della versione web, installer piccoli. Differenze rispetto alla versione web:
+- il salvataggio di backup e CSV usa la finestra di dialogo nativa e la conferma di sostituzione è nativa;
+- **la sincronizzazione con Google Drive non è disponibile** (l'accesso di Google non funziona dentro il WebView e il flusso nativo non è ancora collegato): il pannello mostra un avviso. Per usare più computer: esporta il backup in una cartella già sincronizzata dal tuo servizio cloud e ripristinalo con "Unisci ai dati attuali" sull'altro computer.
+
+**Compilare sul proprio computer** (serve Rust, vedi la guida ufficiale dei prerequisiti di Tauri per il tuo sistema):
+```bash
+npm ci
+npm run tauri dev       # finestra di sviluppo
+npm run tauri build     # installer in src-tauri/target/release/bundle/
+```
+Linux (Debian/Ubuntu): prima `sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev`. Windows: serve anche WebView2 (già presente su Windows 11) e gli strumenti di compilazione C++ di Visual Studio. macOS: Xcode Command Line Tools. Si compila **sul sistema di destinazione**, non c'è cross-compilazione semplice.
+
+**Installer per tutti e tre i sistemi senza averli** (GitHub Actions, `.github/workflows/desktop.yml`):
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+Dopo qualche minuto trovi in *Releases* una **bozza** con gli installer (.msi/.exe, .dmg, .deb/.rpm/.AppImage). Controllali e pubblica la bozza.
+
+**Avvisi del sistema (le build non sono firmate)**
+- Windows: SmartScreen mostra "App non riconosciuta" (*Ulteriori informazioni → Esegui comunque*). Per evitarlo serve un certificato di firma del codice.
+- macOS: Gatekeeper blocca le app non firmate né "notarizzate"; per distribuirle ad altri serve l'Apple Developer Program (99 USD/anno). Per prove personali: tasto destro → *Apri*, oppure `xattr -dr com.apple.quarantine /Applications/Quattrino.app`.
+- Linux: nessun blocco; .AppImage va reso eseguibile (`chmod +x`).
+- Prima di distribuire cambia `identifier` in `src-tauri/tauri.conf.json` (ora `com.example.quattrino`) con un identificativo tuo, in formato dominio inverso.
 
 ## Attivare la sincronizzazione con Google Drive
 
@@ -76,6 +114,7 @@ Collaudo consigliato (non ancora eseguito da me): connetti due browser/profili c
 Vedi `docs/PROGETTO.md` §3. Test in `tests/`, uno per area (denaro/date/orologio, registro, statistiche e budget, unione e validazione, cifratura/backup/CSV, sincronizzazione, Drive/PKCE/IndexedDB, interfaccia).
 
 ## Pubblicazione
+- Novità e limiti noti: [`CHANGELOG.md`](CHANGELOG.md); testo per la pagina della release: [`RELEASE_NOTES.md`](RELEASE_NOTES.md).
 - Store Android e iOS: [`docs/PUBBLICAZIONE-MOBILE.md`](docs/PUBBLICAZIONE-MOBILE.md).
 - Su GitHub, a ogni push parte un controllo automatico (`.github/workflows/ci.yml`: test e build).
 - Licenza: non ne è stata scelta nessuna. Senza un file `LICENSE` il codice resta "tutti i diritti riservati" anche se il repository è pubblico: aggiungine uno (per esempio MIT o GPL) se vuoi permettere ad altri di usarlo.

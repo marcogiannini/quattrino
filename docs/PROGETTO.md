@@ -139,7 +139,7 @@ Accessibilità: tema chiaro/scuro automatico, grafici con descrizione testuale, 
 | 2. App web/PWA | Interfaccia, IndexedDB, offline, backup/CSV | Render di fumo + prova nel browser | Flusso completo su telefono e desktop, riapertura offline | **Fatta** (provata su Chromium) |
 | 3. Sync | Cifratura, motore, conflitti, adattatore Drive | Unitari con cloud simulato e `fetch` simulato | Convergenza provata; nessun dato in chiaro nel cloud | **Fatta con cloud simulato** |
 | 4. Collaudo reale su Drive | Client ID reale, 2+ dispositivi, rete instabile | Manuale guidato (vedi README) | Sync bidirezionale reale, token scaduto gestito | **Da fare (servono credenziali)** |
-| 5. Gusci nativi | Tauri (desktop), Capacitor (mobile), flusso PKCE nativo, portachiavi | Build e prova su ogni sistema | Installer che si avvia su Windows/macOS/Linux; app su Android e iOS | **Da fare** |
+| 5. Gusci nativi | Tauri (desktop), Capacitor (mobile), flusso PKCE nativo, portachiavi | Build e prova su ogni sistema | Installer che si avvia su Windows/macOS/Linux; app su Android e iOS | **Desktop: guscio Tauri fatto, compilato e avviato su Linux; Windows/macOS da provare. Mobile e accesso Google nativo: da fare** |
 | 6. Rifinitura | Spese ricorrenti, import CSV, notifiche budget, localizzazione, accessibilità con screen reader reali | Prove con utenti | Nessun errore bloccante in 2 settimane d'uso | **Da fare** |
 | 7. Pubblicazione | Verifica dell'app Google, firma, store | Checklist di rilascio | App verificata; build firmate | **Da fare** |
 
@@ -149,6 +149,6 @@ Accessibilità: tema chiaro/scuro automatico, grafici con descrizione testuale, 
 
 **Non verificato**:
 - Qualsiasi chiamata reale a Google (nessuna credenziale disponibile): l'adattatore Drive è provato solo contro risposte simulate; il flusso di accesso Google non è stato eseguito.
-- I gusci Tauri e Capacitor non sono inclusi né compilati; Windows, macOS, Android e iOS non sono stati provati (la sessione è Linux, senza i componenti grafici di Tauri). Il flusso OAuth nativo (apertura del browser, ascolto del redirect) non è collegato: `pkce.ts` contiene solo la logica pura e testata.
+- App desktop (Tauri): compilata e avviata solo su **Linux**, in un display virtuale; navigazione e avviso della sincronizzazione verificati. Non provati: Windows, macOS, le finestre di salvataggio native, l'installazione dai pacchetti. Capacitor (Android/iOS) non è incluso. Il flusso OAuth nativo (apertura del browser, ascolto del redirect) non è collegato: `pkce.ts` contiene solo la logica pura e testata, quindi nell'app desktop la sync con Google non è disponibile.
 - Nessuna prova con screen reader, con grandi volumi (oltre qualche migliaio di movimenti) o con la modalità privata di Safari.
 - Le lapidi non vengono mai eliminate (cresce di poco nel tempo); la gestione è rimandata alla fase 6.
