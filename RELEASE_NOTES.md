@@ -16,7 +16,8 @@ Tre novità per risparmiare tempo con le spese fisse, portare dentro i dati che 
 | Dove | Come |
 |---|---|
 | **Web / telefono** | Apri l'indirizzo dell'app: si aggiorna da sola alla riapertura. |
-| **Windows** | Scarica `.msi` o `.exe` dagli allegati di questa release. |
+| **Windows (installabile)** | Scarica `.msi` o `-setup.exe` dagli allegati di questa release. |
+| **Windows (portatile)** | Scarica lo zip `…_windows_portatile.zip`, estrailo e avvia `Quattrino.exe` senza installare nulla. |
 | **macOS** | Scarica il `.dmg` (Apple Silicon o Intel). |
 | **Linux** | Scarica `.deb`, `.rpm` o `.AppImage` (`chmod +x` per l'AppImage). |
 

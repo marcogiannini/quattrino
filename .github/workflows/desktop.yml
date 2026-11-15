@@ -1,7 +1,10 @@
 name: App desktop
 
 # Si avvia quando crei un tag di versione (es. v0.2.0) e prepara una bozza di "Release" su GitHub
-# con gli installer per Windows, macOS (Apple Silicon e Intel) e Linux.
+# con:
+#   Windows: installer .msi e .exe (installabile) + zip con il solo .exe (portatile, senza installazione)
+#   macOS:   .dmg per Apple Silicon e per Intel
+#   Linux:   .AppImage, .deb e .rpm
 on:
   push:
     tags: ['v*']
@@ -50,12 +53,34 @@ jobs:
       - run: npm test
 
       - uses: tauri-apps/tauri-action@v0
+        id: tauri
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Quattrino ${{ github.ref_name }}'
-          releaseBody: 'Installer per Windows, macOS e Linux. Le build non sono firmate: vedi RELEASE_NOTES.md e CHANGELOG.md per novità, limiti noti e avvisi del sistema operativo.'
+          releaseBody: 'Windows (installer e portatile), macOS e Linux (AppImage, deb, rpm). Le build non sono firmate: vedi RELEASE_NOTES.md e CHANGELOG.md per novità, limiti noti e avvisi del sistema operativo.'
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+      # Versione portatile per Windows: il solo eseguibile, da avviare senza installare (richiede WebView2,
+      # già presente su Windows 11 e sulla maggior parte dei Windows 10 aggiornati).
+      - name: Windows portatile (zip)
+        if: matrix.platform == 'windows-latest'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ steps.tauri.outputs.releaseId }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          NAME="Quattrino_${TAG#v}_windows_portatile.zip"
+          mkdir portable
+          cp src-tauri/target/release/quattrino.exe portable/Quattrino.exe
+          7z a "$NAME" ./portable/Quattrino.exe
+          curl --fail -sS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Content-Type: application/zip" \
+            --data-binary "@$NAME" \
+            "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=${NAME}"

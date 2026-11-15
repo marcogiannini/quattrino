@@ -58,16 +58,12 @@ Nei gusci nativi, per Google va collegato il flusso PKCE (`src/core/sync/pkce.ts
 
 L'app è un sito statico: la cartella `dist/` prodotta da `npm run build` si pubblica su qualsiasi hosting statico, anche in una sottocartella (i percorsi sono relativi). I dati restano nel browser di chi la usa (IndexedDB, uno spazio separato per ogni indirizzo).
 
-**GitHub Pages (incluso nel repository)**
-1. Carica il progetto su GitHub (ramo `main`).
-2. Repository → *Settings* → *Pages* → *Source*: **GitHub Actions**. Il file `.github/workflows/deploy.yml` esegue test e build a ogni push e pubblica il sito su `https://<utente>.github.io/<repository>/`. Nei piani gratuiti Pages richiede in genere un repository pubblico: controlla le condizioni attuali di GitHub.
-
-**Altri hosting** (Cloudflare Pages, Netlify, Vercel, un tuo server web): comando di build `npm run build`, cartella da pubblicare `dist`. Qualsiasi server che serva file statici su **https** va bene.
+**Hosting** (Cloudflare Pages, Netlify, Vercel, un tuo server web): comando di build `npm run build`, cartella da pubblicare `dist`. Qualsiasi server che serva file statici su **https** va bene.
 
 Da sapere:
-- **https obbligatorio** per installare l'app, per l'uso offline e per l'accesso a Google. Su Pages e sui servizi sopra c'è già.
+- **https obbligatorio** per installare l'app, per l'uso offline e per l'accesso a Google. Sui servizi sopra c’è già.
 - **Offline**: la memorizzazione dei file per l'uso offline avviene alla prima visita, ma conviene aprire l'app **due volte con la rete** prima di contare sull'uso offline (provato).
-- **Sincronizzazione Google**: nel Client ID OAuth (tipo "Applicazione web") aggiungi l'indirizzo esatto del sito, per esempio `https://<utente>.github.io`, tra le "Origini JavaScript autorizzate".
+- **Sincronizzazione Google**: nel Client ID OAuth (tipo "Applicazione web") aggiungi l'indirizzo esatto del sito, per esempio `https://tuosito.example`, tra le "Origini JavaScript autorizzate".
 - **Aggiornamenti**: dopo una nuova pubblicazione, il browser può mostrare ancora la versione vecchia fino alla riapertura dell'app.
 
 ## App desktop (Windows, macOS, Linux)

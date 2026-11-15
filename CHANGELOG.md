@@ -11,6 +11,7 @@ Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e le v
 - 41 nuovi test automatici (158 in totale): ricorrenze, migrazione, import CSV, traduzioni e interfaccia in inglese.
 
 ### Cambiato
+- **Release desktop**: oltre agli installer Windows (`.msi`, `.exe`), macOS (`.dmg`) e Linux (`.AppImage`, `.deb`, `.rpm`), la release include un **zip portatile per Windows** (solo `Quattrino.exe`, senza installazione). Rimossa la pubblicazione automatica su GitHub Pages (workflow `deploy.yml`): chi vuole la versione web la pubblica su un hosting a scelta (vedi README).
 - **Schema dei dati 1 → 2** (nuova tabella delle ricorrenze). I dati della 0.1.x si migrano da soli all'apertura e i vecchi backup si leggono ancora.
 - Dopo l'aggiornamento, i backup esportati sono nel formato nuovo: **le versioni 0.1.x non li leggono** (lo segnalano come "versione più recente").
 
@@ -48,7 +49,7 @@ Prima versione pubblica (anteprima).
 - **Uso offline**: i dati risiedono sul dispositivo e l'app funziona senza rete; installabile come web app (PWA).
 - **Backup e ripristino su file**, cifrabile con passphrase; ripristino per unione o sostitutivo.
 - **Sincronizzazione cifrata con Google Drive** (solo versione web): cifratura end-to-end (PBKDF2 → AES-256-GCM), un file per dispositivo nella cartella privata dell'app (`drive.appdata`), unione automatica dei conflitti con registro e possibilità di ripristinare la versione scartata.
-- **App web** pubblicabile su qualsiasi hosting statico, anche in una sottocartella; pubblicazione automatica su GitHub Pages.
+- **App web** pubblicabile su qualsiasi hosting statico, anche in una sottocartella.
 - **App desktop** (Tauri 2) per Windows, macOS e Linux, con installer prodotti da GitHub Actions al momento di un tag di versione.
 - Interfaccia in italiano, tema chiaro/scuro automatico, layout per telefono e desktop.
 - Suite di 117 test automatici e controllo automatico (test e build) a ogni push.
